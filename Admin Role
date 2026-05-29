@@ -1,0 +1,63 @@
+Admin Role ( NightMare!) Another one is which should not be seen by unauthorized person.
+
+If attackers exploit an account and got privileged escalation you will be notified with this query.
+{
+    "size": 100,
+    "query": {
+        "bool": {
+            "filter": [
+                {
+                    "range": {
+                        "@timestamp": {
+                            "from": "{{period_end}}||-1h",
+                            "to": "{{period_end}}",
+                            "include_lower": true,
+                            "include_upper": true,
+                            "format": "epoch_millis",
+                            "boost": 1
+                        }
+                    }
+                },
+                {
+                    "term": {
+                        "rule.groups": {
+                            "value": "office365",
+                            "boost": 1
+                        }
+                    }
+                },
+                {
+                    "term": {
+                        "data.office365.Operation": {
+                            "value": "Add member to role.",
+                            "boost": 1
+                        }
+                    }
+                }
+            ],
+            "adjust_pure_negative": true,
+            "boost": 1
+        }
+    }
+}
+
+** ctx.results[0].hits.total.value > 0
+
+MUSTACHE TEMPLATE
+
+
+Monitor {{ctx.monitor.name}} just entered alert status. Please investigate the issue.
+  - Trigger: {{ctx.trigger.name}}
+  - Severity: {{ctx.trigger.severity}}
+  - Period start: {{ctx.periodStart}} UTC
+  - Period end: {{ctx.periodEnd}} UTC
+
+{{#ctx.results.0.hits.hits}}
+
+~ Creation time ~ {{_source.data.office365.CreationTime}} 
+Given Access ~ {{_source.data.office365.ObjectId}}  ~ {{_source.rule.mitre.technique}}
+{{_source.data.office365.ModifiedProperties.1.Name}} : {{_source.data.office365.ModifiedProperties.1.NewValue}}  For ~ {{_source.data.office365.Workload}}
+Given Permission ~ {{_source.rule.mitre.tactic}} 
+**********************************************************************************
+{{/ctx.results.0.hits.hits}}
+
