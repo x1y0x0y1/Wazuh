@@ -1,0 +1,76 @@
+File Accessed External
+
+If someone tries to sign-in your cloud or exploit it, you will get an info via this query is shared below. 
+
+{
+    "size": 100,
+    "query": {
+        "bool": {
+            "filter": [
+                {
+                    "range": {
+                        "@timestamp": {
+                            "from": "{{period_end}}||-24h",
+                            "to": "{{period_end}}",
+                            "include_lower": true,
+                            "include_upper": true,
+                            "format": "epoch_millis",
+                            "boost": 1
+                        }
+                    }
+                },
+                {
+                    "term": {
+                        "rule.groups": {
+                            "value": "office365",
+                            "boost": 1
+                        }
+                    }
+                },
+                {
+                    "term": {
+                        "data.office365.Operation": {
+                            "value": "FileAccessed",
+                            "boost": 1
+                        }
+                    }
+                }
+            ],
+            "must_not": [
+                {
+                    "wildcard": {
+                        "data.office365.UserId": {
+                            "wildcard": "*domain.com.mt",  >> add your company domain here. 
+                            "boost": 1
+                        }
+                    }
+                },
+                {
+                    "term": {
+                        "data.office365.UserId": {
+                            "value": "app@sharepoint",  >> If you want to not seeing an address here, Fx: sharepoint account, add here. 
+                            "boost": 1
+                        }
+                    }
+                }
+            ],
+            "adjust_pure_negative": true,
+            "boost": 1
+        }
+    }
+}
+
+** ctx.results[0].hits.total.value > 0
+
+Monitor {{ctx.monitor.name}} just entered alert status. Please investigate the issue.
+  - Trigger: {{ctx.trigger.name}}
+  - Severity: {{ctx.trigger.severity}}
+  - Period start: {{ctx.periodStart}} UTC
+  - Period end: {{ctx.periodEnd}} UTC
+
+
+EVENTS
+{{#ctx.results.0.hits.hits}}
+  ** USER ~ {{_source.data.office365.UserId}} accessed our sharepoint FROM {{_source.GeoLocation.country_name}} with IP ~ {{_source.data.office365.ClientIP}} CREATION TIME= 2025-11-05T14:46:17
+
+{{/ctx.results.0.hits.hits}}
