@@ -1,0 +1,132 @@
+Mass File Downloaded
+with this query you can have an idea about exfilteration about your company. 
+
+{
+    "size": 100,
+    "query": {
+        "bool": {
+            "filter": [
+                {
+                    "range": {
+                        "@timestamp": {
+                            "from": "{{period_end}}||-5m",
+                            "to": "{{period_end}}",
+                            "include_lower": true,
+                            "include_upper": true,
+                            "format": "epoch_millis",
+                            "boost": 1
+                        }
+                    }
+                },
+                {
+                    "term": {
+                        "rule.groups": {
+                            "value": "office365",
+                            "boost": 1
+                        }
+                    }
+                },
+                {
+                    "term": {
+                        "data.office365.Operation": {
+                            "value": "FileDownloaded",
+                            "boost": 1
+                        }
+                    }
+                },
+                {
+                    "bool": {
+                        "must_not": [
+                            {
+                                "term": {
+                                    "data.office365.UserId": {
+                                        "value": "app@sharepoint",   >> if you would like to suppress some mails, you should add here.
+                                        "boost": 1
+                                    }
+                                }
+                            }
+                        ],
+                        "adjust_pure_negative": true,
+                        "boost": 1
+                    }
+                }
+            ],
+            "adjust_pure_negative": true,
+            "boost": 1
+        }
+    },
+    "aggregations": {
+        "by_user": {
+            "terms": {
+                "field": "data.office365.UserId",
+                "size": 50,
+                "min_doc_count": 10,
+                "shard_min_doc_count": 0,
+                "show_term_doc_count_error": false,
+                "order": [
+                    {
+                        "_count": "desc"
+                    },
+                    {
+                        "_key": "asc"
+                    }
+                ]
+            },
+            "aggregations": {
+                "top_download": {
+                    "top_hits": {
+                        "from": 0,
+                        "size": 1,
+                        "version": false,
+                        "seq_no_primary_term": false,
+                        "explain": false,
+                        "_source": {
+                            "includes": [
+                                "data.office365.SourceFileName",
+                                "data.office365.SiteUrl",
+                                "GeoLocation.country_name",
+                                "data.office365.ClientIP",
+                                "data.office365.CreationTime"
+                            ],
+                            "excludes": []
+                        },
+                        "sort": [
+                            {
+                                "@timestamp": {
+                                    "order": "desc"
+                                }
+                            }
+                        ]
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+** ctx.results != null && ctx.results.size() > 10  >> You can determine threshold here. If you want to get alert after 5 file download, you should write 5 files in 2 mins. 
+
+MUSTACHE TEMPLATE 
+
+
+Monitor {{ctx.monitor.name}} just entered alert status. Please investigate the issue.
+  - Trigger: {{ctx.trigger.name}}
+  - Severity: {{ctx.trigger.severity}}
+  - Period start: {{ctx.periodStart}} UTC
+  - Period end: {{ctx.periodEnd}} UTC
+
+Mass Downloaded Detection
+
+{{#ctx.results.0.aggregations.by_user.buckets}}
+
+- **User:** {{key}}
+- **Number of Downloads:** {{doc_count}}
+**File:** {{top_download.hits.hits.0._source.data.office365.SourceFileName}}
+- **Site:** {{top_download.hits.hits.0._source.data.office365.SiteUrl}}
+- **From:** {{top_download.hits.hits.0._source.GeoLocation.country_name}} - **IP:** {{top_download.hits.hits.0._source.data.office365.ClientIP}}
+- **Creation Time:** {{top_download.hits.hits.0._source.data.office365.CreationTime}}
+
+
+{{/ctx.results.0.aggregations.by_user.buckets}}
+
