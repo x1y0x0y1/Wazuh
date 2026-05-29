@@ -1,0 +1,64 @@
+	
+UPDATE USER (MFA-LastDirSyncTime-StsRefreshTokensValidFrom)
+
+{
+    "size": 100,
+    "query": {
+        "bool": {
+            "filter": [
+                {
+                    "range": {
+                        "@timestamp": {
+                            "from": "{{period_end}}||-1h",
+                            "to": "{{period_end}}",
+                            "include_lower": true,
+                            "include_upper": true,
+                            "format": "epoch_millis",
+                            "boost": 1
+                        }
+                    }
+                },
+                {
+                    "term": {
+                        "rule.groups": {
+                            "value": "office365",
+                            "boost": 1
+                        }
+                    }
+                },
+                {
+                    "term": {
+                        "data.office365.Operation": {
+                            "value": "Update user.",
+                            "boost": 1
+                        }
+                    }
+                }
+            ],
+            "adjust_pure_negative": true,
+            "boost": 1
+        }
+    }
+}
+
+
+** ctx.results[0].hits.total.value > 0
+
+
+MUSTACHE TEMPLATE
+
+The user profile of the following users has been updated. You may want to check these out. 
+
+Monitor {{ctx.monitor.name}} just entered alert status. Please investigate the issue.
+  - Trigger: {{ctx.trigger.name}}
+  - Severity: {{ctx.trigger.severity}}
+  - Period start: {{ctx.periodStart}} UTC
+  - Period end: {{ctx.periodEnd}} UTC
+
+{{#ctx.results.0.hits.hits}}
+
+User: {{_source.data.office365.ObjectId}} had their account updated via: {{_source.data.office365.Actor.0.ID}}, {{_source.data.office365.Actor.4.ID}}, and updated the following fields: {{_source.data.office365.ModifiedProperties.0.Name}} {{_source.data.office365.ModifiedProperties.1.Name}}. Member Type: {{_source.data.office365.ExtendedProperties.1.Value}}, Time {{_source.data.office365.CreationTime}},
+
+{{/ctx.results.0.hits.hits}}
+
+
