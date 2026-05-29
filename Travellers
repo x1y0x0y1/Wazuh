@@ -1,0 +1,127 @@
+TRAVELLERS ( Out of determined country) 
+There are several conditions that if you want to get notification if someone is out of Malta or anycountry but also if the person is in Italy. Except than determined countries, if people sign-in, you can review logs and get notification with this query. 
+By reviewing the sign-in logs, you can set up alerts for any sign-ins that occur outside the approved list of countries using the following query
+
+
+{
+    "size": 100,
+    "query": {
+        "bool": {
+            "filter": [
+                {
+                    "range": {
+                        "@timestamp": {
+                            "from": "{{period_end}}||-1h",
+                            "to": "{{period_end}}",
+                            "include_lower": true,
+                            "include_upper": true,
+                            "format": "epoch_millis",
+                            "boost": 1
+                        }
+                    }
+                },
+                {
+                    "term": {
+                        "rule.groups": {
+                            "value": "office365",
+                            "boost": 1
+                        }
+                    }
+                },
+                {
+                    "bool": {
+                        "must_not": [
+                            {
+                                "term": {
+                                    "GeoLocation.country_name": {
+                                        "value": "Malta",
+                                        "boost": 1
+                                    }
+                                }
+                            },
+                            {
+                                "bool": {
+                                    "must": [
+                                        {
+                                            "terms": {
+                                                "data.office365.UserId": [
+                                                    "username@address.com.mt",
+                                                    "useraccount@example.com.mt",
+                                                    "Not Available"
+                                                ],
+                                                "boost": 1
+                                            }
+                                        },
+                                        {
+                                            "term": {
+                                                "GeoLocation.country_name": {
+                                                    "value": "India",
+                                                    "boost": 1
+                                                }
+                                            }
+                                        }
+                                    ],
+                                    "adjust_pure_negative": true,
+                                    "boost": 1
+                                }
+                            },
+                            {
+                                "bool": {
+                                    "must": [
+                                        {
+                                            "term": {
+                                                "data.office365.UserId": {
+                                                    "value": "suspendedemail@example.com.mt",
+                                                    "boost": 1
+                                                }
+                                            }
+                                        },
+                                        {
+                                            "term": {
+                                                "GeoLocation.country_name": {
+                                                    "value": "Italy",
+                                                    "boost": 1
+                                                }
+                                            }
+                                        }
+                                    ],
+                                    "adjust_pure_negative": true,
+                                    "boost": 1
+                                }
+                            }
+                        ],
+                        "adjust_pure_negative": true,
+                        "boost": 1
+                    }
+                },
+                {
+                    "term": {
+                        "data.office365.Operation": {
+                            "value": "UserLoggedIn",
+                            "boost": 1
+                        }
+                    }
+                }
+            ],
+            "adjust_pure_negative": true,
+            "boost": 1
+        }
+    }
+}
+
+
+** ctx.results[0].hits.total.value > 0
+
+MUSTACHE TEMPLATE 
+
+Monitor {{ctx.monitor.name}} just entered alert status. Please investigate the issue.
+  - Trigger: {{ctx.trigger.name}}
+  - Severity: {{ctx.trigger.severity}}
+  - Period start: {{ctx.periodStart}} UTC
+  - Period end: {{ctx.periodEnd}} UTC
+
+EVENTS
+{{#ctx.results.0.hits.hits}}
+   User {{_source.data.office365.UserId}} logged in from {{_source.GeoLocation.country_name}} at {{_source.@timestamp}}  with {{_source.data.office365.ClientIP}}
+
+{{/ctx.results.0.hits.hits}}
