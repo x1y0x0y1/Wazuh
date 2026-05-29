@@ -1,0 +1,80 @@
+Phishing Urgent Action Requires 
+
+With this query, you will take an urgent action if a phishing email ends up users' inboxes.
+
+{
+    "size": 100,
+    "query": {
+        "bool": {
+            "filter": [
+                {
+                    "range": {
+                        "@timestamp": {
+                            "from": "{{period_end}}||-30m",
+                            "to": "{{period_end}}",
+                            "include_lower": true,
+                            "include_upper": true,
+                            "format": "epoch_millis",
+                            "boost": 1
+                        }
+                    }
+                },
+                {
+                    "term": {
+                        "rule.groups": {
+                            "value": "office365",
+                            "boost": 1
+                        }
+                    }
+                },
+                {
+                    "term": {
+                        "data.office365.Operation": {
+                            "value": "TIMailData",
+                            "boost": 1
+                        }
+                    }
+                },
+                {
+                    "term": {
+                        "data.office365.DeliveryAction": {
+                            "value": "Delivered",
+                            "boost": 1
+                        }
+                    }
+                },
+                {
+                    "term": {
+                        "data.office365.OriginalDeliveryLocation": {
+                            "value": "Inbox",
+                            "boost": 1
+                        }
+                    }
+                }
+            ],
+            "adjust_pure_negative": true,
+            "boost": 1
+        }
+    }
+}
+
+
+** ctx.results[0].hits.total.value > 0
+
+MUSTACHE TEMPLATE 
+
+Monitor {{ctx.monitor.name}} just entered alert status. Please investigate the issue.
+  - Trigger: {{ctx.trigger.name}}
+  - Severity: {{ctx.trigger.severity}}
+  - Period start: {{ctx.periodStart}} UTC
+  - Period end: {{ctx.periodEnd}} UTC
+
+EVENTS
+{{#ctx.results.0.hits.hits}}
+
+** User {{_source.data.office365.Recipients}} received a PHISHING email From {{_source.data.office365.P2Sender}} went to ~{{_source.data.office365.OriginalDeliveryLocation}}
+
+** Creation Time ~{{_source.data.office365.CreationTime}}  and Subject {{_source.data.office365.Subject}} 
+
+
+{{/ctx.results.0.hits.hits}}
