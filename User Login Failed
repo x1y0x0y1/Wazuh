@@ -1,0 +1,126 @@
+USER LOGIN FAILED QUERY
+
+{
+    "size": 100,
+    "query": {
+        "bool": {
+            "filter": [
+                {
+                    "term": {
+                        "rule.groups": {
+                            "value": "office365",
+                            "boost": 1
+                        }
+                    }
+                },
+                {
+                    "term": {
+                        "data.office365.Operation": {
+                            "value": "UserLoginFailed",
+                            "boost": 1
+                        }
+                    }
+                },
+                {
+                    "range": {
+                        "@timestamp": {
+                            "from": "{{period_end}}||-2m",
+                            "to": "{{period_end}}",
+                            "include_lower": true,
+                            "include_upper": true,
+                            "boost": 1
+                        }
+                    }
+                }
+            ],
+            "adjust_pure_negative": true,
+            "boost": 1
+        }
+    },
+    "aggregations": {
+        "by_user": {
+            "terms": {
+                "field": "data.office365.UserId",
+                "size": 50,
+                "min_doc_count": 1,
+                "shard_min_doc_count": 0,
+                "show_term_doc_count_error": false,
+                "order": [
+                    {
+                        "_count": "desc"
+                    },
+                    {
+                        "_key": "asc"
+                    }
+                ]
+            },
+            "aggregations": {
+                "failed_count": {
+                    "value_count": {
+                        "field": "data.office365.Operation"
+                    }
+                },
+                "last_failed_logs": {
+                    "top_hits": {
+                        "from": 0,
+                        "size": 5,
+                        "version": false,
+                        "seq_no_primary_term": false,
+                        "explain": false,
+                        "_source": {
+                            "includes": [
+                                "data.office365.CreationTime",
+                                "data.office365.ClientIP",
+                                "GeoLocation.country_name",
+                                "data.office365.LogonError"
+                            ],
+                            "excludes": []
+                        },
+                        "sort": [
+                            {
+                                "@timestamp": {
+                                    "order": "desc"
+                                }
+                            }
+                        ]
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+** ctx.results[0].hits.total.value >2
+
+MUSTACHE TEMPLATE 
+
+Monitor {{ctx.monitor.name}} just entered alert status. Please investigate the issue.
+  - Trigger: {{ctx.trigger.name}}
+  - Severity: {{ctx.trigger.severity}}
+  - Period start: {{ctx.periodStart}} UTC
+  - Period end: {{ctx.periodEnd}} UTC
+
+⚠️ *Excessive Login Attempts Detected (2min / ≥3 attempts)*
+
+User Login Failed Detection
+
+User Login Failed Last Detection
+
+{{#ctx.results.0.aggregations.by_user.buckets}}
+- **User:** {{key}} | FailedLogins: {{failed_count.value}}
+
+  Last Failed Login Events:
+  {{#last_failed_logs.hits.hits}}
+
+  - CreationTime: {{_source.data.office365.CreationTime}}
+  - IP: {{_source.data.office365.ClientIP}}
+  - Country: {{_source.GeoLocation.country_name}}
+  - Error: {{_source.data.office365.LogonError}}
+  {{/last_failed_logs.hits.hits}}
+******************************************************************************
+
+{{/ctx.results.0.aggregations.by_user.buckets}}
+
+
+
