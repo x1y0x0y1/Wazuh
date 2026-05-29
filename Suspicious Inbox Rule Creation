@@ -1,0 +1,83 @@
+Suspicious Inbox Rule Creation
+
+With this query you can capture many logs related to emails in your work environment
+
+{
+    "size": 100,
+    "query": {
+        "bool": {
+            "filter": [
+                {
+                    "range": {
+                        "@timestamp": {
+                            "from": "{{period_end}}||-1h",
+                            "to": "{{period_end}}",
+                            "include_lower": true,
+                            "include_upper": true,
+                            "format": "epoch_millis",
+                            "boost": 1
+                        }
+                    }
+                },
+                {
+                    "term": {
+                        "rule.groups": {
+                            "value": "office365",
+                            "boost": 1
+                        }
+                    }
+                },
+                {
+                    "wildcard": {
+                        "data.office365.Operation": {
+                            "wildcard": "*InboxRule*",
+                            "boost": 1
+                        }
+                    }
+                }
+            ],
+            "should": [
+                {
+                    "exists": {
+                        "field": "data.office365.Parameters",
+                        "boost": 1
+                    }
+                },
+                {
+                    "exists": {
+                        "field": "data.office365.OperationProperties",
+                        "boost": 1
+                    }
+                }
+            ],
+            "adjust_pure_negative": true,
+            "minimum_should_match": "1",
+            "boost": 1
+        }
+    }
+}
+
+
+** ctx.results[0].hits.total.value > 0
+
+{{#ctx.results.0.hits.hits}}
+{{_source.data.office365.UserId}} has {{_source.data.office365.Operation}} at {{_source.@timestamp}}
+Object ID: {{_source.data.office365.ObjectId}}
+
+Parameters:
+{{#_source.data.office365.Parameters}}
+- {{Name}}: {{Value}}   
+{{/_source.data.office365.Parameters}}
+
+{{#_source.data.office365.OperationProperties}}
+{{#Value}}
+- {{Name}}: {{Value}}
+{{/Value}}
+{{/_source.data.office365.OperationProperties}}
+
+{{^_source.data.office365.OperationProperties}}
+(No OperationProperties found)
+{{/_source.data.office365.OperationProperties}}
+
+{{/ctx.results.0.hits.hits}}
+
